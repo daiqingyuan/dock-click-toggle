@@ -144,12 +144,9 @@ LaunchAgent
 - same-session open probe 仍然失败，还是拿不到权限，表现为 `event_tap_create_failed`。
 - same-session open probe 已经不再作为失败条件。
 - 测试脚本现在会准备真实登出/登录测试，并把 Terminal LaunchAgent plist 改名为 `.disabled`，避免两条启动链同时启动。
+- 真正 log out / log in 后，`SMAppService.mainApp` 会尝试启动 DockClickToggle，但启动后的进程仍然拿不到 Accessibility 和 Input Monitoring，状态为 `FAIL`，错误是 `accessibility_not_granted+input_monitoring_not_granted`。
 
-还没验证：
-
-- 真正的 log out / log in 后，由 `SMAppService.mainApp` 在登录阶段启动 app，是否能拿到 Input Monitoring 权限。
-
-后续真实登录测试命令：
+复现实验命令：
 
 ```bash
 ./scripts/test-smappservice-login-item.sh
@@ -171,7 +168,7 @@ LaunchAgent
 
 - `LaunchAgent -> open -gj -> app` 在当前机器上不能继承 event tap 所需权限。
 - same-session `SMAppService` open probe 不能证明真实登录启动是否可行。
-- 真正的 `SMAppService.mainApp` 登录启动还需要登出/登录测试。
+- 真正的 `SMAppService.mainApp` 登录启动已经测试过，仍然拿不到 Accessibility / Input Monitoring。
 
 所以现在不能安全替换默认启动链。
 
@@ -264,58 +261,38 @@ README 和手工测试矩阵已经记录这个限制。
 - `open -gj` LaunchAgent：不可用，失败于权限上下文。
 - `SMAppService.mainApp` 注册：可注册为 `enabled`。
 - `SMAppService` same-session open probe：不可用，但不再作为失败判定。
-- `SMAppService` 真正登录启动：尚未测试，需要登出/登录。
+- `SMAppService` 真正登录启动：会启动 app，但 app 仍然拿不到 Accessibility / Input Monitoring，最终退出并写入 `FAIL`。
 
 ## 后续建议路线
 
-### 优先级 1：真实 SMAppService 登录测试
-
-在准备好重登时运行：
+### 优先级 1：恢复稳定启动链
 
 ```bash
-./scripts/test-smappservice-login-item.sh
+./scripts/test-smappservice-login-item.sh --restore
 ```
 
-这个脚本会：
+目前应继续使用 Terminal launcher，保证工具可用。
 
-- 关闭当前 Terminal LaunchAgent。
-- 把 `~/Library/LaunchAgents/local.dock-click-toggle.plist` 改名为 `.disabled`。
-- 注册 `SMAppService.mainApp`。
-- 确认 `loginItemStatus=enabled`。
-- 跳过 same-session probe。
+### 优先级 2：尝试稳定代码签名
 
-然后登出/登录，检查：
+当前 app 是 ad-hoc 签名，macOS TCC 可能把不同启动路径或重新签名后的 app 当成不同身份。
 
-```bash
-./scripts/diagnose.sh --json
-```
+下一步可以尝试：
 
-如果登录后状态是：
+- 本地固定签名证书。
+- Developer ID 签名。
+- 清理旧 TCC 记录后，只给 `/Applications/DockClickToggle.app` 这个固定身份授权。
+
+### 优先级 3：做专用 LoginItem helper app
+
+如果稳定签名后 `SMAppService.mainApp` 仍然不行，下一步应该改成：
 
 ```text
-status = OK
-eventTapCreated = true
-accessibilityTrusted = true
-inputMonitoringGranted = true
+DockClickToggle.app
+└── Contents/Library/LoginItems/DockClickToggleAgent.app
 ```
 
-才说明 `SMAppService.mainApp` 有机会替代 Terminal launcher。
-
-### 优先级 2：如果 SMAppService 成功
-
-可以考虑增加可选安装模式：
-
-```bash
-./scripts/install.sh --login-item
-```
-
-或者在 README 中作为实验模式说明，不马上替代默认模式。
-
-### 优先级 3：如果 SMAppService 失败
-
-继续保留 Terminal launcher，并把 Terminal 闪现作为已知限制。
-
-可再研究菜单栏 App / helper app 架构，但不要再把 `open -gj` 作为默认路径。
+主 app 负责设置、权限引导和注册登录项；`DockClickToggleAgent.app` 作为真正后台常驻进程创建 `CGEventTap`。
 
 ### 优先级 4：正式发布能力
 
@@ -345,6 +322,6 @@ inputMonitoringGranted = true
 
 ## 重要提醒
 
-不要在没有实验结果的情况下把默认启动方式从 Terminal launcher 换成 `open -gj` 或 `SMAppService`。
+不要把默认启动方式从 Terminal launcher 换成 `open -gj` 或 `SMAppService.mainApp`。
 
-目前真正稳定可用的是 Terminal launcher。`SMAppService` 是最值得继续测试的方向，但它还没有完成真实登录验证。
+目前真正稳定可用的是 Terminal launcher。`SMAppService.mainApp` 已经完成真实登录验证，但在当前签名和权限条件下失败。下一步应研究稳定签名或专用 LoginItem helper app。

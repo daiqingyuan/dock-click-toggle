@@ -151,13 +151,14 @@ If the login test fails, or if you want to return to the normal Terminal-based l
 ./scripts/test-smappservice-login-item.sh --restore
 ```
 
-This is intentionally experimental. `SMAppService.mainApp` is the most promising path for eventually removing the Terminal flash, but it must prove that it can start DockClickToggle at login with Accessibility and Input Monitoring still trusted.
+This is intentionally experimental. On the current test machine, `SMAppService.mainApp` successfully registers as a login item, but the real log out / log in test still starts DockClickToggle without Accessibility and Input Monitoring trust. The result is `event_tap_create_failed`, so `SMAppService.mainApp` should not replace the Terminal launcher yet.
 
 Notes:
 
 - `loginItemStatus=enabled` means macOS accepted the app as a login item.
 - `loginItemStatus=notRegistered` or `loginItemStatus=notFound` means there is no active `SMAppService` registration.
 - The same-session open probe is intentionally ignored; the real proof is the log out / log in test.
+- If the real login test reports `accessibilityTrusted: false`, `inputMonitoringGranted: false`, and `event_tap_create_failed`, restore the Terminal launcher and use a dedicated LoginItem helper app or stable Developer ID signing as the next experiment.
 
 ## Check Status
 
