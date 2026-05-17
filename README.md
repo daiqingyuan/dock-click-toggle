@@ -46,7 +46,19 @@ Then enable both permissions in System Settings:
 - Privacy & Security > Accessibility > DockClickToggle
 - Privacy & Security > Input Monitoring > DockClickToggle
 
-On a clean Mac, the first launch may report `FAIL` until those permissions are granted. After enabling permissions, restart the LaunchAgent:
+The background launcher does not open permission prompts automatically. If you want macOS to show the permission prompts, run:
+
+```bash
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --request-permissions
+```
+
+To check the current permission state without opening prompts:
+
+```bash
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --permission-status
+```
+
+On a clean Mac, the first launch reports `FAIL` until those permissions are granted. After enabling permissions, restart the LaunchAgent:
 
 ```bash
 launchctl kickstart -k gui/$(id -u)/local.dock-click-toggle
@@ -159,7 +171,7 @@ The status file also reports whether Accessibility, Input Monitoring, and the ev
 
 Possible status states:
 
-- `STARTING`: the app is launching and checking permissions.
+- `STARTING`: the app is launching and checking permissions without prompting.
 - `OK`: the event tap is active.
 - `RECOVERING`: the event tap was disabled and is being re-enabled.
 - `FAIL`: startup or event tap creation failed.

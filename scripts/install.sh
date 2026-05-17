@@ -36,4 +36,5 @@ cp "$repo_dir/packaging/local.dock-click-toggle.plist.template" "$agent_path"
 
 echo "Installed DockClickToggle."
 echo "Enable Accessibility and Input Monitoring permissions for DockClickToggle in System Settings."
+echo "To request permission prompts manually: $app_path/Contents/MacOS/DockClickToggle --request-permissions"
 echo "Status file: $support_dir/status.json"

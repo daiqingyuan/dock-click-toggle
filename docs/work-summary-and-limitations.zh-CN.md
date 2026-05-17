@@ -183,6 +183,18 @@ macOS 不允许程序自动授予自己：
 
 脚本和 app 只能提示、检测和诊断，不能绕过系统隐私控制。
 
+当前后台启动路径不会主动弹出权限窗口。需要弹窗时，用户必须手动运行：
+
+```bash
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --request-permissions
+```
+
+只检查权限、不弹窗时运行：
+
+```bash
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --permission-status
+```
+
 ### 3. CI 不能测试真正的 Dock 行为
 
 GitHub Actions 可以测试：

@@ -102,9 +102,11 @@ final class DockClickToggle {
 
     func start() {
         installSignalHandlers()
-        requestAccessibilityIfNeeded()
-        requestInputMonitoringIfNeeded()
         writeStatus(state: "STARTING", eventTapCreated: false, lastError: nil)
+
+        guard checkRequiredPermissions() else {
+            Darwin.exit(1)
+        }
 
         let mask =
             (1 << CGEventType.leftMouseDown.rawValue) |
@@ -152,11 +154,6 @@ final class DockClickToggle {
         CFRunLoopRun()
     }
 
-    private func requestAccessibilityIfNeeded() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-    }
-
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let eventTap {
@@ -196,17 +193,6 @@ final class DockClickToggle {
             return Unmanaged.passUnretained(event)
         default:
             return Unmanaged.passUnretained(event)
-        }
-    }
-
-    private func requestInputMonitoringIfNeeded() {
-        guard !CGPreflightListenEventAccess() else {
-            return
-        }
-
-        let granted = CGRequestListenEventAccess()
-        if !granted {
-            fputs("DockClickToggle: Input Monitoring is not granted yet. Enable Dock Click Toggle in System Settings > Privacy & Security > Input Monitoring.\n", stderr)
         }
     }
 
@@ -264,6 +250,33 @@ final class DockClickToggle {
             eventTapCreated: eventTapCreated,
             lastError: lastError
         )
+    }
+
+    private func checkRequiredPermissions() -> Bool {
+        let accessibilityTrusted = AXIsProcessTrusted()
+        let inputMonitoringGranted = CGPreflightListenEventAccess()
+        guard accessibilityTrusted && inputMonitoringGranted else {
+            var missing: [String] = []
+            if !accessibilityTrusted {
+                missing.append("Accessibility")
+            }
+            if !inputMonitoringGranted {
+                missing.append("Input Monitoring")
+            }
+
+            let lastError = missing
+                .map { $0.lowercased().replacingOccurrences(of: " ", with: "_") + "_not_granted" }
+                .joined(separator: "+")
+
+            writeStatus(state: "FAIL", eventTapCreated: false, lastError: lastError)
+            fputs(
+                "DockClickToggle: missing permission(s): \(missing.joined(separator: ", ")). Enable them in System Settings, or run DockClickToggle --request-permissions manually.\n",
+                stderr
+            )
+            return false
+        }
+
+        return true
     }
 
     private func startHeartbeat() {
@@ -542,6 +555,12 @@ enum LoginItemCommand {
         case "--open-login-items-settings":
             openSystemSettings()
             return true
+        case "--request-permissions":
+            requestPermissions()
+            return true
+        case "--permission-status":
+            printPermissionStatus()
+            return true
         default:
             return false
         }
@@ -606,6 +625,25 @@ enum LoginItemCommand {
         }
 
         SMAppService.openSystemSettingsLoginItems()
+    }
+
+    private static func requestPermissions() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        let accessibilityTrusted = AXIsProcessTrustedWithOptions(options)
+        let inputMonitoringGranted = CGPreflightListenEventAccess() || CGRequestListenEventAccess()
+
+        print("accessibilityTrusted=\(accessibilityTrusted)")
+        print("inputMonitoringGranted=\(inputMonitoringGranted)")
+
+        if !accessibilityTrusted || !inputMonitoringGranted {
+            fputs("DockClickToggle: permissions are still incomplete. Enable Accessibility and Input Monitoring in System Settings, then restart DockClickToggle.\n", stderr)
+            Darwin.exit(1)
+        }
+    }
+
+    private static func printPermissionStatus() {
+        print("accessibilityTrusted=\(AXIsProcessTrusted())")
+        print("inputMonitoringGranted=\(CGPreflightListenEventAccess())")
     }
 
     @available(macOS 13.0, *)
