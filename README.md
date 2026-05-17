@@ -38,6 +38,14 @@ Then enable both permissions in System Settings:
 - Privacy & Security > Accessibility > DockClickToggle
 - Privacy & Security > Input Monitoring > DockClickToggle
 
+On a clean Mac, the first launch may report `FAIL` until those permissions are granted. After enabling permissions, restart the LaunchAgent:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/local.dock-click-toggle
+sleep 10
+cat /tmp/dock-click-toggle.status
+```
+
 The installer creates:
 
 - `/Applications/DockClickToggle.app`
