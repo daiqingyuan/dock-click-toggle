@@ -14,11 +14,16 @@ jobs:
         run: ./scripts/build.sh
 
       - name: Verify app signature
-        run: codesign --verify --deep --strict .build/DockClickToggle.app
+        run: |
+          xattr -cr .build/DockClickToggle.app 2>/dev/null || true
+          find .build/DockClickToggle.app -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+          find .build/DockClickToggle.app -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+          codesign --verify --deep --strict .build/DockClickToggle.app
 
       - name: Validate plists
         run: |
           plutil -lint packaging/Info.plist
+          plutil -lint packaging/AgentInfo.plist
           plutil -lint packaging/local.dock-click-toggle.plist.template
 
       - name: Check required bundle files
@@ -26,4 +31,5 @@ jobs:
           test -x .build/DockClickToggle.app/Contents/MacOS/DockClickToggle
           test -x .build/DockClickToggle.app/Contents/Resources/start-via-terminal.sh
           test -f .build/DockClickToggle.app/Contents/Resources/AppIcon.icns
-
+          test -x .build/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app/Contents/MacOS/DockClickToggleAgent
+          test -f .build/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app/Contents/Info.plist

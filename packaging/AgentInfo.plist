@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>DockClickToggleAgent</string>
+    <key>CFBundleIdentifier</key>
+    <string>local.dock-click-toggle.agent</string>
+    <key>CFBundleName</key>
+    <string>DockClickToggleAgent</string>
+    <key>CFBundleDisplayName</key>
+    <string>Dock Click Toggle Agent</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>Dock Click Toggle Agent needs Accessibility access to detect Dock icons and minimize app windows.</string>
+    <key>NSInputMonitoringUsageDescription</key>
+    <string>Dock Click Toggle Agent needs Input Monitoring access to detect Dock mouse clicks before Dock restores the app.</string>
+</dict>
+</plist>

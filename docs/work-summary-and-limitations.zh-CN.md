@@ -159,6 +159,58 @@ LaunchAgent
 ./scripts/test-smappservice-login-item.sh --restore
 ```
 
+### 8. 专用 LoginItem helper app 实验
+
+已经新增专用 helper bundle：
+
+```text
+DockClickToggle.app
+└── Contents/Library/LoginItems/DockClickToggleAgent.app
+```
+
+主 app 新增命令：
+
+```bash
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --agent-login-item-status
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --register-agent-login-item
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --unregister-agent-login-item
+```
+
+新增实验脚本：
+
+```bash
+./scripts/test-agent-login-item.sh
+```
+
+脚本行为：
+
+- 临时禁用并改名 Terminal LaunchAgent。
+- 停止当前 `DockClickToggle` / `DockClickToggleAgent` 进程。
+- 注册 `DockClickToggleAgent.app`。
+- 确认 `agentLoginItemStatus=enabled`。
+- 不做 same-session probe，等待真实 log out / log in 验证。
+
+已经验证：
+
+- `.app` bundle 内已经包含 `DockClickToggleAgent.app`。
+- helper binary 可执行。
+- 主 app 可以把 helper login item 注册到 `enabled`。
+- 当前安装状态下，helper binary 自己运行 `--permission-status` 显示 Accessibility / Input Monitoring 都是 `true`。
+- 测试脚本可以 `--restore` 回 Terminal launcher。
+- restore 后当前机器回到 `OK`，`eventTapCreated=true`。
+
+尚未验证：
+
+- 真实 log out / log in 后，`DockClickToggleAgent.app` 能否拿到 Accessibility / Input Monitoring。
+- helper 是否需要在系统设置里单独授权为 `Dock Click Toggle Agent`。
+
+因为 helper 使用独立 bundle id，权限可能不沿用主 app。可以检查或请求 helper 自己的权限：
+
+```bash
+/Applications/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app/Contents/MacOS/DockClickToggleAgent --permission-status
+/Applications/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app/Contents/MacOS/DockClickToggleAgent --request-permissions
+```
+
 ## 当前明确限制
 
 ### 1. Terminal 闪现仍然存在
@@ -212,15 +264,17 @@ GitHub Actions 可以测试：
 
 这些只能在真实 macOS 桌面会话里手动测。
 
-### 4. 仍然是 ad-hoc 签名
+### 4. 仍然不是正式 Developer ID 签名
 
-当前使用：
+当前机器上已经建立本机稳定签名身份：
 
-```bash
-codesign -s -
+```text
+DockClickToggle Local Code Signing
 ```
 
-这是本地 ad-hoc 签名，不是 Developer ID 签名，也没有 notarization。
+如果该 identity 存在，构建和安装脚本会自动使用它；否则 fallback 到 ad-hoc 签名。
+
+这个本机签名有助于稳定 TCC 身份，但它仍然不是 Developer ID 签名，也没有 notarization。
 
 陌生用户下载后，Gatekeeper 仍可能提示未知开发者。
 
@@ -264,6 +318,7 @@ README 和手工测试矩阵已经记录这个限制。
 - `SMAppService` same-session open probe：不可用，但不再作为失败判定。
 - `SMAppService` 真正登录启动：会启动 app，但 app 仍然拿不到 Accessibility / Input Monitoring，最终退出并写入 `FAIL`。
 - 本机稳定签名：已生效，但没有修复 `SMAppService.mainApp` 登录启动权限问题。
+- 专用 `DockClickToggleAgent.app`：已实现、已构建、可注册为 `enabled`，但还需要真实 log out / log in 验证。
 
 ## 后续建议路线
 
@@ -321,9 +376,9 @@ designated => identifier "local.dock-click-toggle" and certificate leaf = ...
 - Developer ID 签名。
 - 只给 `/Applications/DockClickToggle.app` 这个固定身份授权后，再配合专用 helper app 测试。
 
-### 优先级 3：做专用 LoginItem helper app
+### 优先级 3：真实验证专用 LoginItem helper app
 
-稳定签名后 `SMAppService.mainApp` 仍然不行，下一步应该改成：
+稳定签名后 `SMAppService.mainApp` 仍然不行，所以已经实现：
 
 ```text
 DockClickToggle.app
@@ -331,6 +386,18 @@ DockClickToggle.app
 ```
 
 主 app 负责设置、权限引导和注册登录项；`DockClickToggleAgent.app` 作为真正后台常驻进程创建 `CGEventTap`。
+
+下一步真实测试：
+
+```bash
+./scripts/test-agent-login-item.sh
+```
+
+然后 log out / log in，再运行：
+
+```bash
+./scripts/diagnose.sh --json
+```
 
 ### 优先级 4：正式发布能力
 
@@ -362,4 +429,4 @@ DockClickToggle.app
 
 不要把默认启动方式从 Terminal launcher 换成 `open -gj` 或 `SMAppService.mainApp`。
 
-目前真正稳定可用的是 Terminal launcher。`SMAppService.mainApp` 已经完成真实登录验证，并且在 ad-hoc 和本机稳定签名条件下都失败。下一步应研究专用 LoginItem helper app，或在正式 Developer ID 签名后再做分发级验证。
+目前真正稳定可用的是 Terminal launcher。`SMAppService.mainApp` 已经完成真实登录验证，并且在 ad-hoc 和本机稳定签名条件下都失败。专用 LoginItem helper app 已经实现并完成注册/恢复演练，但还不能替代默认启动链，直到完成真实 log out / log in 验证。

@@ -552,6 +552,15 @@ enum LoginItemCommand {
         case "--login-item-status":
             printStatus()
             return true
+        case "--register-agent-login-item":
+            registerAgent()
+            return true
+        case "--unregister-agent-login-item":
+            unregisterAgent()
+            return true
+        case "--agent-login-item-status":
+            printAgentStatus()
+            return true
         case "--open-login-items-settings":
             openSystemSettings()
             return true
@@ -618,6 +627,61 @@ enum LoginItemCommand {
         print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
     }
 
+    private static func registerAgent() {
+        guard #available(macOS 13.0, *) else {
+            fputs("DockClickToggle: SMAppService requires macOS 13 or later.\n", stderr)
+            Darwin.exit(2)
+        }
+
+        let service = SMAppService.loginItem(identifier: "local.dock-click-toggle.agent")
+        do {
+            if service.status == .enabled {
+                print("agentLoginItemStatus=\(statusString(service.status))")
+                return
+            }
+
+            try service.register()
+            print("agentLoginItemStatus=\(statusString(service.status))")
+        } catch {
+            fputs("DockClickToggle: failed to register agent login item: \(error)\n", stderr)
+            print("agentLoginItemStatus=\(statusString(service.status))")
+            Darwin.exit(1)
+        }
+    }
+
+    private static func unregisterAgent() {
+        guard #available(macOS 13.0, *) else {
+            fputs("DockClickToggle: SMAppService requires macOS 13 or later.\n", stderr)
+            Darwin.exit(2)
+        }
+
+        let service = SMAppService.loginItem(identifier: "local.dock-click-toggle.agent")
+        do {
+            let status = service.status
+            if status == .notRegistered || status == .notFound {
+                print("agentLoginItemStatus=\(statusString(service.status))")
+                return
+            }
+
+            try service.unregister()
+            print("agentLoginItemStatus=\(statusString(service.status))")
+        } catch {
+            fputs("DockClickToggle: failed to unregister agent login item: \(error)\n", stderr)
+            print("agentLoginItemStatus=\(statusString(service.status))")
+            Darwin.exit(1)
+        }
+    }
+
+    private static func printAgentStatus() {
+        guard #available(macOS 13.0, *) else {
+            print("agentLoginItemStatus=unavailable")
+            return
+        }
+
+        let service = SMAppService.loginItem(identifier: "local.dock-click-toggle.agent")
+        print("agentLoginItemStatus=\(statusString(service.status))")
+    }
+
     private static func openSystemSettings() {
         guard #available(macOS 13.0, *) else {
             fputs("DockClickToggle: SMAppService requires macOS 13 or later.\n", stderr)
@@ -663,6 +727,15 @@ enum LoginItemCommand {
     }
 }
 
+#if DOCK_CLICK_TOGGLE_AGENT
+if CommandLine.arguments.count > 1, LoginItemCommand.runIfRequested() {
+    Darwin.exit(0)
+}
+
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+DockClickToggle().start()
+#else
 if LoginItemCommand.runIfRequested() {
     Darwin.exit(0)
 }
@@ -670,3 +743,4 @@ if LoginItemCommand.runIfRequested() {
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 DockClickToggle().start()
+#endif

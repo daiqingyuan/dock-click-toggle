@@ -160,6 +160,48 @@ Notes:
 - The same-session open probe is intentionally ignored; the real proof is the log out / log in test.
 - If the real login test reports `accessibilityTrusted: false`, `inputMonitoringGranted: false`, and `event_tap_create_failed`, restore the Terminal launcher. The next practical experiment is a dedicated LoginItem helper app, with Developer ID signing reserved for formal distribution testing.
 
+## Experimental LoginItem Agent Test
+
+The app bundle also contains a dedicated helper login item:
+
+```text
+/Applications/DockClickToggle.app
+└── Contents/Library/LoginItems/DockClickToggleAgent.app
+```
+
+The main app can register and inspect that helper with:
+
+```bash
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --agent-login-item-status
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --register-agent-login-item
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --unregister-agent-login-item
+```
+
+Use the wrapper script for the real log out / log in test:
+
+```bash
+./scripts/test-agent-login-item.sh
+```
+
+The script disables the normal Terminal-based LaunchAgent, registers `DockClickToggleAgent.app`, verifies `agentLoginItemStatus=enabled`, and stops there. It intentionally does not run a same-session probe. After logging out and back in, run:
+
+```bash
+./scripts/diagnose.sh --json
+```
+
+If the test fails or you want to return to the stable launcher:
+
+```bash
+./scripts/test-agent-login-item.sh --restore
+```
+
+Because the helper has its own bundle id, macOS may require separate permissions for `Dock Click Toggle Agent`. Check or request the helper-specific permission state with:
+
+```bash
+/Applications/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app/Contents/MacOS/DockClickToggleAgent --permission-status
+/Applications/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app/Contents/MacOS/DockClickToggleAgent --request-permissions
+```
+
 ## Check Status
 
 ```bash
@@ -171,7 +213,7 @@ launchctl print gui/$(id -u)/local.dock-click-toggle | grep -E 'state =|runs =|l
 Healthy status:
 
 - `status.json` has `"state" : "OK"`
-- A `DockClickToggle` process is running
+- A `DockClickToggle` or `DockClickToggleAgent` process is running
 - LaunchAgent shows `run interval = 60 seconds`
 
 The LaunchAgent itself can be `state = not running`; it only checks and starts the utility.
@@ -206,6 +248,12 @@ The built app is written to:
 
 ```text
 .build/DockClickToggle.app
+```
+
+The build also embeds the experimental helper at:
+
+```text
+.build/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app
 ```
 
 ## Local Stable Signing

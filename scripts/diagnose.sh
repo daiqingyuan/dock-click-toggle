@@ -13,6 +13,8 @@ custom_app_path="${INSTALL_DIR:-}"
 app_path="${custom_app_path:+$custom_app_path/DockClickToggle.app}"
 app_path="${app_path:-$default_app_path}"
 binary_path="$app_path/Contents/MacOS/DockClickToggle"
+agent_app_path="$app_path/Contents/Library/LoginItems/DockClickToggleAgent.app"
+agent_binary_path="$agent_app_path/Contents/MacOS/DockClickToggleAgent"
 launcher_path="$app_path/Contents/Resources/start-via-terminal.sh"
 support_dir="$HOME/Library/Application Support/DockClickToggle"
 log_dir="$HOME/Library/Logs/DockClickToggle"
@@ -78,7 +80,12 @@ json_string_array_from_lines() {
 }
 
 if [[ "$output_json" == true ]]; then
-    running_pids="$(/usr/bin/pgrep -x DockClickToggle | /usr/bin/tr '\n' ' ' | /usr/bin/sed 's/[[:space:]]*$//')"
+    running_pids="$(
+        {
+            /usr/bin/pgrep -x DockClickToggle 2>/dev/null || true
+            /usr/bin/pgrep -x DockClickToggleAgent 2>/dev/null || true
+        } | /usr/bin/tr '\n' ' ' | /usr/bin/sed 's/[[:space:]]*$//'
+    )"
     launch_output="$(/bin/launchctl print "gui/$(id -u)/$agent_label" 2>&1)"
     launch_status=$?
     plist_lint_ok=false
@@ -122,6 +129,9 @@ if [[ "$output_json" == true ]]; then
     printf '  "appPath": "%s",\n' "$(json_string "$app_path")"
     printf '  "binaryExists": %s,\n' "$(json_bool "$(exists_text "$binary_path")")"
     printf '  "binaryExecutable": %s,\n' "$(json_bool "$(executable_text "$binary_path")")"
+    printf '  "agentAppExists": %s,\n' "$(json_bool "$(exists_text "$agent_app_path")")"
+    printf '  "agentBinaryExists": %s,\n' "$(json_bool "$(exists_text "$agent_binary_path")")"
+    printf '  "agentBinaryExecutable": %s,\n' "$(json_bool "$(executable_text "$agent_binary_path")")"
     printf '  "launcherExists": %s,\n' "$(json_bool "$(exists_text "$launcher_path")")"
     printf '  "launcherExecutable": %s,\n' "$(json_bool "$(executable_text "$launcher_path")")"
     printf '  "launchAgentInstalled": %s,\n' "$(json_bool "$(exists_text "$agent_path")")"
@@ -163,6 +173,9 @@ print_kv "App path" "$app_path"
 print_kv "App exists" "$(exists_text "$app_path")"
 print_kv "Binary exists" "$(exists_text "$binary_path")"
 print_kv "Binary executable" "$(executable_text "$binary_path")"
+print_kv "Agent app exists" "$(exists_text "$agent_app_path")"
+print_kv "Agent binary exists" "$(exists_text "$agent_binary_path")"
+print_kv "Agent binary executable" "$(executable_text "$agent_binary_path")"
 print_kv "Launcher exists" "$(exists_text "$launcher_path")"
 print_kv "Launcher executable" "$(executable_text "$launcher_path")"
 
@@ -188,7 +201,12 @@ else
 fi
 
 print_header "Process"
-running_pids="$(/usr/bin/pgrep -x DockClickToggle | /usr/bin/tr '\n' ' ' | /usr/bin/sed 's/[[:space:]]*$//')"
+running_pids="$(
+    {
+        /usr/bin/pgrep -x DockClickToggle 2>/dev/null || true
+        /usr/bin/pgrep -x DockClickToggleAgent 2>/dev/null || true
+    } | /usr/bin/tr '\n' ' ' | /usr/bin/sed 's/[[:space:]]*$//'
+)"
 print_kv "Running pids" "${running_pids:-none}"
 
 print_header "Status"

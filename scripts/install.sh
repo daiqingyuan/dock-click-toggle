@@ -18,6 +18,7 @@ else
 fi
 
 app_path="$install_dir/DockClickToggle.app"
+agent_app_path="$app_path/Contents/Library/LoginItems/DockClickToggleAgent.app"
 support_dir="$HOME/Library/Application Support/DockClickToggle"
 log_dir="$HOME/Library/Logs/DockClickToggle"
 start_script="$app_path/Contents/Resources/start-via-terminal.sh"
@@ -28,12 +29,17 @@ err_log="$log_dir/err.log"
 
 /bin/launchctl bootout "gui/$uid/$agent_label" 2>/dev/null || true
 /usr/bin/pkill -x DockClickToggle 2>/dev/null || true
+/usr/bin/pkill -x DockClickToggleAgent 2>/dev/null || true
 rm -f "$support_dir/status.json" /tmp/dock-click-toggle.status /tmp/dock-click-toggle.out.log /tmp/dock-click-toggle.err.log
 
 mkdir -p "$install_dir" "$HOME/Library/LaunchAgents" "$support_dir" "$log_dir"
 rm -rf "$app_path"
 cp -R "$repo_dir/.build/DockClickToggle.app" "$app_path"
 /usr/bin/xattr -cr "$app_path" 2>/dev/null || true
+if [[ -d "$agent_app_path" ]]; then
+    /usr/bin/codesign -f --sign "$sign_identity" --identifier local.dock-click-toggle.agent "$agent_app_path"
+    /usr/bin/codesign --verify --deep --strict "$agent_app_path"
+fi
 /usr/bin/codesign -f --sign "$sign_identity" --identifier local.dock-click-toggle "$app_path"
 /usr/bin/codesign --verify --deep --strict "$app_path"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app_path"
