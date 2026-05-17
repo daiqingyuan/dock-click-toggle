@@ -142,7 +142,8 @@ LaunchAgent
 
 - `SMAppService.mainApp.register()` 可以成功，状态会变成 `enabled`。
 - same-session open probe 仍然失败，还是拿不到权限，表现为 `event_tap_create_failed`。
-- 脚本能自动 unregister，并恢复正式 Terminal launcher。
+- same-session open probe 已经不再作为失败条件。
+- 测试脚本现在会准备真实登出/登录测试，并把 Terminal LaunchAgent plist 改名为 `.disabled`，避免两条启动链同时启动。
 
 还没验证：
 
@@ -151,10 +152,10 @@ LaunchAgent
 后续真实登录测试命令：
 
 ```bash
-./scripts/test-smappservice-login-item.sh --prepare-login-test
+./scripts/test-smappservice-login-item.sh
 ```
 
-测试后恢复命令：
+如果登录测试失败，或者想回到原来的 Terminal launcher，运行：
 
 ```bash
 ./scripts/test-smappservice-login-item.sh --restore
@@ -169,7 +170,7 @@ LaunchAgent
 原因是：
 
 - `LaunchAgent -> open -gj -> app` 在当前机器上不能继承 event tap 所需权限。
-- same-session `SMAppService` open probe 也不能证明可行。
+- same-session `SMAppService` open probe 不能证明真实登录启动是否可行。
 - 真正的 `SMAppService.mainApp` 登录启动还需要登出/登录测试。
 
 所以现在不能安全替换默认启动链。
@@ -262,7 +263,7 @@ README 和手工测试矩阵已经记录这个限制。
 - 正式 Terminal launcher：可用，状态 `OK`。
 - `open -gj` LaunchAgent：不可用，失败于权限上下文。
 - `SMAppService.mainApp` 注册：可注册为 `enabled`。
-- `SMAppService` same-session open probe：不可用，失败于权限上下文。
+- `SMAppService` same-session open probe：不可用，但不再作为失败判定。
 - `SMAppService` 真正登录启动：尚未测试，需要登出/登录。
 
 ## 后续建议路线
@@ -272,8 +273,16 @@ README 和手工测试矩阵已经记录这个限制。
 在准备好重登时运行：
 
 ```bash
-./scripts/test-smappservice-login-item.sh --prepare-login-test
+./scripts/test-smappservice-login-item.sh
 ```
+
+这个脚本会：
+
+- 关闭当前 Terminal LaunchAgent。
+- 把 `~/Library/LaunchAgents/local.dock-click-toggle.plist` 改名为 `.disabled`。
+- 注册 `SMAppService.mainApp`。
+- 确认 `loginItemStatus=enabled`。
+- 跳过 same-session probe。
 
 然后登出/登录，检查：
 

@@ -129,15 +129,23 @@ Use the wrapper script for safer testing:
 ./scripts/test-smappservice-login-item.sh
 ```
 
-Default mode registers the app as an `SMAppService.mainApp` login item, runs a same-session open probe, then unregisters it and restores the normal Terminal-based LaunchAgent.
+Default mode prepares a real log out / log in test:
 
-To test the real login path, prepare the machine and then log out / log back in:
+- disables the normal Terminal-based LaunchAgent
+- renames `~/Library/LaunchAgents/local.dock-click-toggle.plist` to `~/Library/LaunchAgents/local.dock-click-toggle.plist.disabled`
+- stops the current DockClickToggle process
+- registers the app as an `SMAppService.mainApp` login item
+- verifies `loginItemStatus=enabled`
+
+It intentionally skips the same-session `open` probe. The probe is not a pass/fail gate because the real question is whether macOS starts the app correctly during the next login session.
+
+After running the script, log out / log in and then run:
 
 ```bash
-./scripts/test-smappservice-login-item.sh --prepare-login-test
+./scripts/diagnose.sh --json
 ```
 
-After the login test, restore the normal launcher:
+If the login test fails, or if you want to return to the normal Terminal-based launcher:
 
 ```bash
 ./scripts/test-smappservice-login-item.sh --restore
@@ -149,7 +157,7 @@ Notes:
 
 - `loginItemStatus=enabled` means macOS accepted the app as a login item.
 - `loginItemStatus=notRegistered` or `loginItemStatus=notFound` means there is no active `SMAppService` registration.
-- A same-session open probe can still fail with `event_tap_create_failed`; the real proof is the log out / log in test.
+- The same-session open probe is intentionally ignored; the real proof is the log out / log in test.
 
 ## Check Status
 
