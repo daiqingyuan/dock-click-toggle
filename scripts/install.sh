@@ -14,7 +14,9 @@ app_path="/Applications/DockClickToggle.app"
 
 rm -rf "$app_path"
 cp -R "$repo_dir/.build/DockClickToggle.app" "$app_path"
+/usr/bin/xattr -cr "$app_path" 2>/dev/null || true
 /usr/bin/codesign -f -s - --identifier local.dock-click-toggle "$app_path"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app_path"
 
 escaped_repo_dir="${repo_dir//\\/\\\\}"
 escaped_repo_dir="${escaped_repo_dir//&/\\&}"
@@ -26,4 +28,3 @@ escaped_repo_dir="${escaped_repo_dir//&/\\&}"
 echo "Installed DockClickToggle."
 echo "Enable Accessibility and Input Monitoring permissions for DockClickToggle in System Settings."
 echo "Status file: /tmp/dock-click-toggle.status"
-

@@ -10,6 +10,8 @@
     <string>DockClickToggle</string>
     <key>CFBundleDisplayName</key>
     <string>Dock Click Toggle</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

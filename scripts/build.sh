@@ -3,9 +3,14 @@ set -eu
 
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 app_dir="$repo_dir/.build/DockClickToggle.app"
+iconset_dir="$repo_dir/.build/AppIcon.iconset"
 
 rm -rf "$app_dir"
-mkdir -p "$app_dir/Contents/MacOS"
+rm -rf "$iconset_dir"
+mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
+
+/usr/bin/swift "$repo_dir/scripts/render-icon.swift" "$iconset_dir"
+/usr/bin/iconutil -c icns "$iconset_dir" -o "$app_dir/Contents/Resources/AppIcon.icns"
 
 /usr/bin/swiftc \
     "$repo_dir/Sources/DockClickToggle/main.swift" \

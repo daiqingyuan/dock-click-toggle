@@ -7,6 +7,8 @@ DockClickToggle is a small macOS utility that makes the macOS Dock, the bottom a
 
 It is intentionally tiny, local-only, and dependency-free.
 
+The app includes a custom icon that represents a macOS Dock shelf and a minimize action. The design source is in `assets/icon.svg`, and the build script renders the final `.icns` file automatically.
+
 ## Privacy
 
 DockClickToggle does not send data anywhere. It does not use networking, analytics, telemetry, or cloud services.
