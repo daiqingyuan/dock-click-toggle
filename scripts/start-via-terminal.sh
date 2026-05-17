@@ -22,11 +22,29 @@ err_log="$log_dir/err.log"
 mkdir -p "$support_dir" "$log_dir"
 
 is_healthy() {
-    [[ -f "$status_file" ]] && /usr/bin/grep -q '"state"[[:space:]]*:[[:space:]]*"OK"' "$status_file"
+    local pid="$1"
+    local state status_pid last_updated now age
+
+    [[ -f "$status_file" ]] || return 1
+
+    state="$(/usr/bin/plutil -extract state raw -o - "$status_file" 2>/dev/null || true)"
+    [[ "$state" == "OK" ]] || return 1
+
+    status_pid="$(/usr/bin/plutil -extract pid raw -o - "$status_file" 2>/dev/null || true)"
+    [[ "$status_pid" == "$pid" ]] || return 1
+
+    last_updated="$(/usr/bin/plutil -extract lastUpdatedUnix raw -o - "$status_file" 2>/dev/null || true)"
+    [[ "$last_updated" == <-> ]] || return 1
+
+    now="$(/bin/date +%s)"
+    age=$((now - last_updated))
+    (( age >= 0 && age <= 120 ))
 }
 
-if /usr/bin/pgrep -qx DockClickToggle; then
-    if is_healthy; then
+pid="$(/usr/bin/pgrep -x DockClickToggle | /usr/bin/head -n 1 || true)"
+
+if [[ -n "$pid" ]]; then
+    if is_healthy "$pid"; then
         exit 0
     fi
 

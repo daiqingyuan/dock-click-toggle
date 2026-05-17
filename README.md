@@ -93,6 +93,8 @@ The LaunchAgent itself can be `state = not running`; it only checks and starts t
 
 The status file also reports whether Accessibility, Input Monitoring, and the event tap are active.
 
+DockClickToggle refreshes this file every 30 seconds. The launcher treats an `OK` status as stale if it is older than 120 seconds or if the recorded `pid` does not match the running process.
+
 ## Manual Restart
 
 ```bash
@@ -126,6 +128,18 @@ To remove support files and logs too:
 ```bash
 ./scripts/uninstall.sh --purge
 ```
+
+If you installed to a custom directory, pass the same `INSTALL_DIR` when uninstalling:
+
+```bash
+INSTALL_DIR="$HOME/Applications" ./scripts/uninstall.sh --purge
+```
+
+## Known Limitations
+
+- The current login launcher uses Terminal to start the app in an interactive user session. Terminal may briefly open during login or restart.
+- Dragging the current frontmost app's Dock icon may not behave exactly like the native Dock because DockClickToggle consumes the initial mouse-down event for eligible clicks.
+- Some apps with unusual Accessibility window metadata may not minimize every window exactly like a native Dock action.
 
 ## Troubleshooting
 

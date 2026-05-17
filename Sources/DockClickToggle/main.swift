@@ -26,6 +26,7 @@ struct StatusPayload: Codable {
     let eventTapCreated: Bool
     let lastStartedAt: String
     let lastUpdatedAt: String
+    let lastUpdatedUnix: Int
     let lastError: String?
 }
 
@@ -53,6 +54,7 @@ final class StatusStore {
         eventTapCreated: Bool,
         lastError: String?
     ) {
+        let now = Date()
         let payload = StatusPayload(
             state: state,
             pid: getpid(),
@@ -61,7 +63,8 @@ final class StatusStore {
             inputMonitoringGranted: inputMonitoringGranted,
             eventTapCreated: eventTapCreated,
             lastStartedAt: startedAt,
-            lastUpdatedAt: ISO8601DateFormatter().string(from: Date()),
+            lastUpdatedAt: ISO8601DateFormatter().string(from: now),
+            lastUpdatedUnix: Int(now.timeIntervalSince1970),
             lastError: lastError
         )
 
@@ -80,12 +83,15 @@ final class StatusStore {
 final class DockClickToggle {
     private var eventTap: CFMachPort?
     private var pendingClick: PendingClick?
+    private var dockItemCache: [DockItem] = []
+    private var lastDockCacheRefresh = Date.distantPast
     private var lastActionAt = Date.distantPast
     private var consecutiveTimeouts = 0
     private let statusStore = StatusStore()
     private let maxConsecutiveTimeouts = 5
     private let maxClickMovement: CGFloat = 5
     private let maxClickDuration: TimeInterval = 0.35
+    private let dockCacheTTL: TimeInterval = 0.5
 
     func start() {
         requestAccessibilityIfNeeded()
@@ -133,6 +139,7 @@ final class DockClickToggle {
         CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
         writeStatus(state: "OK", eventTapCreated: true, lastError: nil)
+        startHeartbeat()
         fputs("DockClickToggle: running.\n", stderr)
         CFRunLoopRun()
     }
@@ -244,6 +251,17 @@ final class DockClickToggle {
         )
     }
 
+    private func startHeartbeat() {
+        Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.writeStatus(
+                state: self.eventTap == nil ? "FAIL" : "OK",
+                eventTapCreated: self.eventTap != nil,
+                lastError: self.eventTap == nil ? "event_tap_missing" : nil
+            )
+        }
+    }
+
     private func hasModifierKeys(_ event: CGEvent) -> Bool {
         let flags = event.flags
         return flags.contains(.maskCommand) ||
@@ -253,25 +271,39 @@ final class DockClickToggle {
     }
 
     private func dockItem(at point: CGPoint) -> DockItem? {
+        refreshDockItemCacheIfNeeded()
+
+        return dockItemCache.first {
+            $0.frame.insetBy(dx: -3, dy: -3).contains(point)
+        }
+    }
+
+    private func refreshDockItemCacheIfNeeded() {
+        guard Date().timeIntervalSince(lastDockCacheRefresh) > dockCacheTTL else {
+            return
+        }
+
+        dockItemCache = loadDockItems()
+        lastDockCacheRefresh = Date()
+    }
+
+    private func loadDockItems() -> [DockItem] {
         guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
-            return nil
+            return []
         }
 
         let dockAX = AXUIElementCreateApplication(dock.processIdentifier)
         let items = collectDockItems(from: dockAX)
 
-        for element in items {
+        return items.compactMap { element in
             guard axString(element, kAXSubroleAttribute) == kAXApplicationDockItemSubrole as String,
                   let title = axString(element, kAXTitleAttribute),
                   let url = axURL(element, "AXURL"),
-                  let frame = axFrame(element),
-                  frame.insetBy(dx: -3, dy: -3).contains(point) else {
-                continue
+                  let frame = axFrame(element) else {
+                return nil
             }
             return DockItem(title: title, url: url, frame: frame)
         }
-
-        return nil
     }
 
     private func collectDockItems(from element: AXUIElement, depth: Int = 0) -> [AXUIElement] {
