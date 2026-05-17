@@ -75,6 +75,32 @@ Grant Input Monitoring permission
 
 Terminal may briefly appear at login. That is expected.
 
+## Experimental Open Launcher Test
+
+There is an experimental test script for checking whether `open -gj DockClickToggle.app` can replace the Terminal launcher on a given Mac:
+
+```bash
+./scripts/test-open-launcher.sh
+```
+
+The script temporarily disables the normal LaunchAgent, creates a separate `local.dock-click-toggle.open-test` LaunchAgent, waits for `status.json` to report `OK`, then restores the normal Terminal-based launcher.
+
+For a real Dock click check, run:
+
+```bash
+./scripts/test-open-launcher.sh --manual
+```
+
+For recovery testing through the experimental LaunchAgent's `StartInterval`:
+
+```bash
+./scripts/test-open-launcher.sh --restart-test
+```
+
+This script is intentionally only a test harness. The default installed launcher still uses Terminal until `open -gj` is proven reliable across more macOS setups.
+
+If the test reports `accessibilityTrusted: false`, `inputMonitoringGranted: false`, or `event_tap_create_failed`, keep the Terminal launcher. That means the `open -gj` LaunchAgent path did not inherit the permission context needed for the event tap.
+
 ## Check Status
 
 ```bash
