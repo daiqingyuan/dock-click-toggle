@@ -31,6 +31,7 @@ cp "$repo_dir/packaging/local.dock-click-toggle.plist.template" "$agent_path"
 /usr/libexec/PlistBuddy -c "Set :StandardErrorPath $err_log" "$agent_path"
 /usr/libexec/PlistBuddy -c "Set :StandardOutPath $out_log" "$agent_path"
 
+/usr/bin/plutil -lint "$agent_path"
 /bin/launchctl bootstrap "gui/$uid" "$agent_path"
 
 echo "Installed DockClickToggle."
