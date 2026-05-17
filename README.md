@@ -1,6 +1,6 @@
-# DockClickToggle
+# macOS Dock Icon Auto Minimize
 
-DockClickToggle is a small macOS utility that makes Dock app icons behave more like a Windows taskbar:
+DockClickToggle is a small macOS utility that makes the macOS Dock, the bottom app navigation bar, behave more like a Windows taskbar:
 
 - Click the frontmost app's Dock icon to minimize that app's visible windows.
 - Click the same Dock icon again while it is minimized to let Dock restore it normally.
@@ -118,4 +118,3 @@ Then restart:
 ```bash
 launchctl kickstart -k gui/$(id -u)/local.dock-click-toggle
 ```
-
