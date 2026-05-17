@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.dock-click-toggle</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>__REPO_DIR__/scripts/start-via-terminal.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>60</integer>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardErrorPath</key>
+    <string>/tmp/dock-click-toggle.err.log</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/dock-click-toggle.out.log</string>
+</dict>
+</plist>
+
