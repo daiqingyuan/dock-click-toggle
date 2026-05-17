@@ -3,6 +3,7 @@ import ApplicationServices
 import CoreGraphics
 import Darwin
 import Foundation
+import ServiceManagement
 
 struct DockItem {
     let title: String
@@ -520,6 +521,112 @@ final class DockClickToggle {
 
         return CGRect(origin: position, size: size)
     }
+}
+
+enum LoginItemCommand {
+    static func runIfRequested(arguments: [String] = CommandLine.arguments) -> Bool {
+        guard let command = arguments.dropFirst().first else {
+            return false
+        }
+
+        switch command {
+        case "--register-login-item":
+            register()
+            return true
+        case "--unregister-login-item":
+            unregister()
+            return true
+        case "--login-item-status":
+            printStatus()
+            return true
+        case "--open-login-items-settings":
+            openSystemSettings()
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func register() {
+        guard #available(macOS 13.0, *) else {
+            fputs("DockClickToggle: SMAppService requires macOS 13 or later.\n", stderr)
+            Darwin.exit(2)
+        }
+
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
+                return
+            }
+
+            try SMAppService.mainApp.register()
+            print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
+        } catch {
+            fputs("DockClickToggle: failed to register login item: \(error)\n", stderr)
+            print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
+            Darwin.exit(1)
+        }
+    }
+
+    private static func unregister() {
+        guard #available(macOS 13.0, *) else {
+            fputs("DockClickToggle: SMAppService requires macOS 13 or later.\n", stderr)
+            Darwin.exit(2)
+        }
+
+        do {
+            let status = SMAppService.mainApp.status
+            if status == .notRegistered || status == .notFound {
+                print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
+                return
+            }
+
+            try SMAppService.mainApp.unregister()
+            print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
+        } catch {
+            fputs("DockClickToggle: failed to unregister login item: \(error)\n", stderr)
+            print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
+            Darwin.exit(1)
+        }
+    }
+
+    private static func printStatus() {
+        guard #available(macOS 13.0, *) else {
+            print("loginItemStatus=unavailable")
+            return
+        }
+
+        print("loginItemStatus=\(statusString(SMAppService.mainApp.status))")
+    }
+
+    private static func openSystemSettings() {
+        guard #available(macOS 13.0, *) else {
+            fputs("DockClickToggle: SMAppService requires macOS 13 or later.\n", stderr)
+            Darwin.exit(2)
+        }
+
+        SMAppService.openSystemSettingsLoginItems()
+    }
+
+    @available(macOS 13.0, *)
+    private static func statusString(_ status: SMAppService.Status) -> String {
+        switch status {
+        case .notRegistered:
+            return "notRegistered"
+        case .enabled:
+            return "enabled"
+        case .requiresApproval:
+            return "requiresApproval"
+        case .notFound:
+            return "notFound"
+        @unknown default:
+            return "unknown"
+        }
+    }
+}
+
+if LoginItemCommand.runIfRequested() {
+    Darwin.exit(0)
 }
 
 let app = NSApplication.shared

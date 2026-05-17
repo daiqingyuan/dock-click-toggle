@@ -11,6 +11,18 @@ clean_bundle_metadata() {
     /usr/bin/find "$app_dir" -exec /usr/bin/xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
 }
 
+verify_bundle() {
+    for verify_attempt in 1 2 3 4 5; do
+        clean_bundle_metadata
+        if /usr/bin/codesign --verify --deep --strict "$app_dir"; then
+            return 0
+        fi
+        sleep 0.2
+    done
+
+    /usr/bin/codesign --verify --deep --strict "$app_dir"
+}
+
 rm -rf "$app_dir"
 rm -rf "$iconset_dir"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
@@ -25,7 +37,8 @@ chmod +x "$app_dir/Contents/Resources/start-via-terminal.sh"
     -o "$app_dir/Contents/MacOS/DockClickToggle" \
     -framework AppKit \
     -framework ApplicationServices \
-    -framework CoreGraphics
+    -framework CoreGraphics \
+    -framework ServiceManagement
 
 cp "$repo_dir/packaging/Info.plist" "$app_dir/Contents/Info.plist"
 
@@ -33,7 +46,7 @@ for attempt in 1 2 3; do
     clean_bundle_metadata
 
     if /usr/bin/codesign -f -s - --identifier local.dock-click-toggle "$app_dir" &&
-        /usr/bin/codesign --verify --deep --strict "$app_dir"; then
+        verify_bundle; then
         break
     fi
 
@@ -45,7 +58,6 @@ for attempt in 1 2 3; do
     sleep 0.2
 done
 
-clean_bundle_metadata
-/usr/bin/codesign --verify --deep --strict "$app_dir"
+verify_bundle
 
 echo "$app_dir"

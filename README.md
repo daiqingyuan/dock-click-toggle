@@ -101,6 +101,44 @@ This script is intentionally only a test harness. The default installed launcher
 
 If the test reports `accessibilityTrusted: false`, `inputMonitoringGranted: false`, or `event_tap_create_failed`, keep the Terminal launcher. That means the `open -gj` LaunchAgent path did not inherit the permission context needed for the event tap.
 
+## Experimental SMAppService Login Item Test
+
+DockClickToggle also includes experimental `SMAppService.mainApp` commands:
+
+```bash
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --login-item-status
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --register-login-item
+/Applications/DockClickToggle.app/Contents/MacOS/DockClickToggle --unregister-login-item
+```
+
+Use the wrapper script for safer testing:
+
+```bash
+./scripts/test-smappservice-login-item.sh
+```
+
+Default mode registers the app as an `SMAppService.mainApp` login item, runs a same-session open probe, then unregisters it and restores the normal Terminal-based LaunchAgent.
+
+To test the real login path, prepare the machine and then log out / log back in:
+
+```bash
+./scripts/test-smappservice-login-item.sh --prepare-login-test
+```
+
+After the login test, restore the normal launcher:
+
+```bash
+./scripts/test-smappservice-login-item.sh --restore
+```
+
+This is intentionally experimental. `SMAppService.mainApp` is the most promising path for eventually removing the Terminal flash, but it must prove that it can start DockClickToggle at login with Accessibility and Input Monitoring still trusted.
+
+Notes:
+
+- `loginItemStatus=enabled` means macOS accepted the app as a login item.
+- `loginItemStatus=notRegistered` or `loginItemStatus=notFound` means there is no active `SMAppService` registration.
+- A same-session open probe can still fail with `event_tap_create_failed`; the real proof is the log out / log in test.
+
 ## Check Status
 
 ```bash
