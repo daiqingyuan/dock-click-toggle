@@ -35,6 +35,12 @@ Clone the repo, then run:
 ./scripts/install.sh
 ```
 
+The default install location is `/Applications`. To install somewhere else:
+
+```bash
+INSTALL_DIR="$HOME/Applications" ./scripts/install.sh
+```
+
 Then enable both permissions in System Settings:
 
 - Privacy & Security > Accessibility > DockClickToggle
@@ -45,19 +51,22 @@ On a clean Mac, the first launch may report `FAIL` until those permissions are g
 ```bash
 launchctl kickstart -k gui/$(id -u)/local.dock-click-toggle
 sleep 10
-cat /tmp/dock-click-toggle.status
+cat "$HOME/Library/Application Support/DockClickToggle/status.json"
 ```
 
 The installer creates:
 
 - `/Applications/DockClickToggle.app`
 - `~/Library/LaunchAgents/local.dock-click-toggle.plist`
+- `~/Library/Application Support/DockClickToggle/status.json`
+- `~/Library/Logs/DockClickToggle/err.log`
+- `~/Library/Logs/DockClickToggle/out.log`
 
 ## Why Terminal May Flash At Login
 
 On some recent macOS versions, a LaunchAgent that directly starts a `CGEventTap` process can fail to receive Input Monitoring permission because the process is spawned in a daemon-like context.
 
-The included LaunchAgent uses `scripts/start-via-terminal.sh`, which asks Terminal to start DockClickToggle in the user's interactive session. This makes the event tap work reliably on systems that otherwise report:
+The installed LaunchAgent uses `DockClickToggle.app/Contents/Resources/start-via-terminal.sh`, which asks Terminal to start DockClickToggle in the user's interactive session. This makes the event tap work reliably on systems that otherwise report:
 
 ```text
 failed to create event tap
@@ -69,25 +78,27 @@ Terminal may briefly appear at login. That is expected.
 ## Check Status
 
 ```bash
-cat /tmp/dock-click-toggle.status
+cat "$HOME/Library/Application Support/DockClickToggle/status.json"
 pgrep -afil DockClickToggle
 launchctl print gui/$(id -u)/local.dock-click-toggle | grep -E 'state =|runs =|last exit code|run interval'
 ```
 
 Healthy status:
 
-- `/tmp/dock-click-toggle.status` is `OK`
+- `status.json` has `"state" : "OK"`
 - A `DockClickToggle` process is running
 - LaunchAgent shows `run interval = 60 seconds`
 
 The LaunchAgent itself can be `state = not running`; it only checks and starts the utility.
+
+The status file also reports whether Accessibility, Input Monitoring, and the event tap are active.
 
 ## Manual Restart
 
 ```bash
 launchctl kickstart -k gui/$(id -u)/local.dock-click-toggle
 sleep 10
-cat /tmp/dock-click-toggle.status
+cat "$HOME/Library/Application Support/DockClickToggle/status.json"
 ```
 
 ## Build Only
@@ -110,12 +121,18 @@ The built app is written to:
 
 The uninstall script removes the LaunchAgent and `/Applications/DockClickToggle.app`. It does not reset macOS privacy permissions.
 
+To remove support files and logs too:
+
+```bash
+./scripts/uninstall.sh --purge
+```
+
 ## Troubleshooting
 
 Read the error log:
 
 ```bash
-tail -80 /tmp/dock-click-toggle.err.log
+tail -80 "$HOME/Library/Logs/DockClickToggle/err.log"
 ```
 
 If permissions look enabled but status is still `FAIL`, toggle DockClickToggle off and back on in:

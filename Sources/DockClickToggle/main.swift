@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CoreGraphics
+import Darwin
 import Foundation
 
 struct DockItem {
@@ -13,6 +14,67 @@ struct PendingClick {
     let bundleIdentifier: String
     let appName: String
     let downPoint: CGPoint
+    let downAt: Date
+}
+
+struct StatusPayload: Codable {
+    let state: String
+    let pid: Int32
+    let version: String
+    let accessibilityTrusted: Bool
+    let inputMonitoringGranted: Bool
+    let eventTapCreated: Bool
+    let lastStartedAt: String
+    let lastUpdatedAt: String
+    let lastError: String?
+}
+
+final class StatusStore {
+    private let startedAt = ISO8601DateFormatter().string(from: Date())
+    private let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }()
+
+    private var supportDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/DockClickToggle", isDirectory: true)
+    }
+
+    var statusURL: URL {
+        supportDirectory.appendingPathComponent("status.json")
+    }
+
+    func write(
+        state: String,
+        accessibilityTrusted: Bool,
+        inputMonitoringGranted: Bool,
+        eventTapCreated: Bool,
+        lastError: String?
+    ) {
+        let payload = StatusPayload(
+            state: state,
+            pid: getpid(),
+            version: "1.0",
+            accessibilityTrusted: accessibilityTrusted,
+            inputMonitoringGranted: inputMonitoringGranted,
+            eventTapCreated: eventTapCreated,
+            lastStartedAt: startedAt,
+            lastUpdatedAt: ISO8601DateFormatter().string(from: Date()),
+            lastError: lastError
+        )
+
+        do {
+            try FileManager.default.createDirectory(at: supportDirectory, withIntermediateDirectories: true)
+            let data = try encoder.encode(payload)
+            try data.write(to: statusURL, options: .atomic)
+        } catch {
+            fputs("DockClickToggle: failed to write status: \(error)\n", stderr)
+        }
+
+        try? state.write(toFile: "/tmp/dock-click-toggle.status", atomically: true, encoding: .utf8)
+    }
 }
 
 final class DockClickToggle {
@@ -20,11 +82,15 @@ final class DockClickToggle {
     private var pendingClick: PendingClick?
     private var lastActionAt = Date.distantPast
     private var consecutiveTimeouts = 0
+    private let statusStore = StatusStore()
     private let maxConsecutiveTimeouts = 5
+    private let maxClickMovement: CGFloat = 5
+    private let maxClickDuration: TimeInterval = 0.35
 
     func start() {
         requestAccessibilityIfNeeded()
         requestInputMonitoringIfNeeded()
+        writeStatus(state: "STARTING", eventTapCreated: false, lastError: nil)
 
         let mask =
             (1 << CGEventType.leftMouseDown.rawValue) |
@@ -54,16 +120,19 @@ final class DockClickToggle {
         }
 
         guard let eventTap else {
-            try? "FAIL".write(toFile: "/tmp/dock-click-toggle.status", atomically: true, encoding: .utf8)
+            writeStatus(
+                state: "FAIL",
+                eventTapCreated: false,
+                lastError: "event_tap_create_failed"
+            )
             fputs("DockClickToggle: failed to create event tap after 3 attempts. Grant Input Monitoring permission.\n", stderr)
-            CFRunLoopRun()
-            return
+            Darwin.exit(1)
         }
 
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
-        try? "OK".write(toFile: "/tmp/dock-click-toggle.status", atomically: true, encoding: .utf8)
+        writeStatus(state: "OK", eventTapCreated: true, lastError: nil)
         fputs("DockClickToggle: running.\n", stderr)
         CFRunLoopRun()
     }
@@ -78,9 +147,13 @@ final class DockClickToggle {
             if let eventTap {
                 consecutiveTimeouts += 1
                 if consecutiveTimeouts > maxConsecutiveTimeouts {
-                    fputs("DockClickToggle: event tap disabled \(consecutiveTimeouts) times. Sleeping 2s before re-enable.\n", stderr)
-                    Thread.sleep(forTimeInterval: 2)
+                    fputs("DockClickToggle: event tap disabled \(consecutiveTimeouts) times. Re-enabling after 2s.\n", stderr)
                     consecutiveTimeouts = 0
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                        guard let self, let eventTap = self.eventTap else { return }
+                        CGEvent.tapEnable(tap: eventTap, enable: true)
+                    }
+                    return Unmanaged.passUnretained(event)
                 }
                 CGEvent.tapEnable(tap: eventTap, enable: true)
             }
@@ -118,6 +191,10 @@ final class DockClickToggle {
     private func handleMouseDown(_ event: CGEvent) -> Unmanaged<CGEvent>? {
         pendingClick = nil
 
+        guard !hasModifierKeys(event) else {
+            return Unmanaged.passUnretained(event)
+        }
+
         let point = event.location
         guard let item = dockItem(at: point),
               let frontmost = NSWorkspace.shared.frontmostApplication,
@@ -132,7 +209,8 @@ final class DockClickToggle {
         pendingClick = PendingClick(
             bundleIdentifier: bundleIdentifier,
             appName: item.title,
-            downPoint: point
+            downPoint: point,
+            downAt: Date()
         )
         return nil
     }
@@ -144,7 +222,10 @@ final class DockClickToggle {
         pendingClick = nil
 
         let upPoint = event.location
-        guard distance(pending.downPoint, upPoint) <= 8 else {
+        let duration = Date().timeIntervalSince(pending.downAt)
+        guard distance(pending.downPoint, upPoint) <= maxClickMovement,
+              duration <= maxClickDuration,
+              NSWorkspace.shared.frontmostApplication?.bundleIdentifier == pending.bundleIdentifier else {
             return nil
         }
 
@@ -153,17 +234,31 @@ final class DockClickToggle {
         return nil
     }
 
+    private func writeStatus(state: String, eventTapCreated: Bool, lastError: String?) {
+        statusStore.write(
+            state: state,
+            accessibilityTrusted: AXIsProcessTrusted(),
+            inputMonitoringGranted: CGPreflightListenEventAccess(),
+            eventTapCreated: eventTapCreated,
+            lastError: lastError
+        )
+    }
+
+    private func hasModifierKeys(_ event: CGEvent) -> Bool {
+        let flags = event.flags
+        return flags.contains(.maskCommand) ||
+            flags.contains(.maskAlternate) ||
+            flags.contains(.maskControl) ||
+            flags.contains(.maskShift)
+    }
+
     private func dockItem(at point: CGPoint) -> DockItem? {
         guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
             return nil
         }
 
         let dockAX = AXUIElementCreateApplication(dock.processIdentifier)
-        guard let topChildren = axArray(dockAX, kAXChildrenAttribute),
-              let list = topChildren.first,
-              let items = axArray(list, kAXChildrenAttribute) else {
-            return nil
-        }
+        let items = collectDockItems(from: dockAX)
 
         for element in items {
             guard axString(element, kAXSubroleAttribute) == kAXApplicationDockItemSubrole as String,
@@ -177,6 +272,22 @@ final class DockClickToggle {
         }
 
         return nil
+    }
+
+    private func collectDockItems(from element: AXUIElement, depth: Int = 0) -> [AXUIElement] {
+        guard depth < 6 else {
+            return []
+        }
+
+        if axString(element, kAXSubroleAttribute) == kAXApplicationDockItemSubrole as String {
+            return [element]
+        }
+
+        guard let children = axArray(element, kAXChildrenAttribute) else {
+            return []
+        }
+
+        return children.flatMap { collectDockItems(from: $0, depth: depth + 1) }
     }
 
     private func hasUnminimizedWindow(bundleIdentifier: String) -> Bool {
@@ -198,6 +309,7 @@ final class DockClickToggle {
         }
 
         var minimized = 0
+        var failed = 0
         for window in windows where axBool(window, kAXMinimizedAttribute) == false {
             let result = AXUIElementSetAttributeValue(
                 window,
@@ -206,11 +318,13 @@ final class DockClickToggle {
             )
             if result == .success {
                 minimized += 1
+            } else {
+                failed += 1
             }
         }
 
-        if minimized == 0 {
-            app.hide()
+        if minimized == 0 && failed > 0 {
+            fputs("DockClickToggle: failed to minimize visible windows for \(bundleIdentifier); not hiding app.\n", stderr)
         }
     }
 

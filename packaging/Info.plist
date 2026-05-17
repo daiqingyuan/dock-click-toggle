@@ -24,5 +24,7 @@
     <true/>
     <key>NSAccessibilityUsageDescription</key>
     <string>Dock Click Toggle needs Accessibility access to detect Dock icons and minimize app windows.</string>
+    <key>NSInputMonitoringUsageDescription</key>
+    <string>Dock Click Toggle needs Input Monitoring access to detect Dock mouse clicks before Dock restores the app.</string>
 </dict>
 </plist>

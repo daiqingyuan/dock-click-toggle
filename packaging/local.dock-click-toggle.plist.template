@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/zsh</string>
-        <string>__REPO_DIR__/scripts/start-via-terminal.sh</string>
+        <string>__START_SCRIPT__</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -16,9 +16,8 @@
     <key>KeepAlive</key>
     <false/>
     <key>StandardErrorPath</key>
-    <string>/tmp/dock-click-toggle.err.log</string>
+    <string>__ERR_LOG__</string>
     <key>StandardOutPath</key>
-    <string>/tmp/dock-click-toggle.out.log</string>
+    <string>__OUT_LOG__</string>
 </dict>
 </plist>
-
