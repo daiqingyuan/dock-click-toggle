@@ -222,9 +222,9 @@ case "$mode" in
 
         log "Registering main app as SMAppService login item"
         register_login_item
-        status="$(login_item_status_value)"
-        printf 'loginItemStatus=%s\n' "$status"
-        [[ "$status" == "enabled" ]] || fail "Expected loginItemStatus=enabled, got $status"
+        item_status="$(login_item_status_value)"
+        printf 'loginItemStatus=%s\n' "$item_status"
+        [[ "$item_status" == "enabled" ]] || fail "Expected loginItemStatus=enabled, got $item_status"
 
         cat <<EOF
 
