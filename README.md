@@ -151,14 +151,14 @@ If the login test fails, or if you want to return to the normal Terminal-based l
 ./scripts/test-smappservice-login-item.sh --restore
 ```
 
-This is intentionally experimental. On the current test machine, `SMAppService.mainApp` successfully registers as a login item, but the real log out / log in test still starts DockClickToggle without Accessibility and Input Monitoring trust. The result is `event_tap_create_failed`, so `SMAppService.mainApp` should not replace the Terminal launcher yet.
+This is intentionally experimental. On the current test machine, `SMAppService.mainApp` successfully registers as a login item, but the real log out / log in test still starts DockClickToggle without Accessibility and Input Monitoring trust. This remained true after switching from ad-hoc signing to the local stable signing identity. The result is `event_tap_create_failed`, so `SMAppService.mainApp` should not replace the Terminal launcher yet.
 
 Notes:
 
 - `loginItemStatus=enabled` means macOS accepted the app as a login item.
 - `loginItemStatus=notRegistered` or `loginItemStatus=notFound` means there is no active `SMAppService` registration.
 - The same-session open probe is intentionally ignored; the real proof is the log out / log in test.
-- If the real login test reports `accessibilityTrusted: false`, `inputMonitoringGranted: false`, and `event_tap_create_failed`, restore the Terminal launcher and use a dedicated LoginItem helper app or stable Developer ID signing as the next experiment.
+- If the real login test reports `accessibilityTrusted: false`, `inputMonitoringGranted: false`, and `event_tap_create_failed`, restore the Terminal launcher. The next practical experiment is a dedicated LoginItem helper app, with Developer ID signing reserved for formal distribution testing.
 
 ## Check Status
 
@@ -236,7 +236,7 @@ To force ad-hoc signing:
 SIGN_IDENTITY=- ./scripts/install.sh
 ```
 
-Stable local signing is useful for testing macOS privacy permissions because TCC is sensitive to the app's code identity. It is not a substitute for Developer ID signing and notarization when distributing to other people.
+Stable local signing is useful for testing macOS privacy permissions because TCC is sensitive to the app's code identity. On the current test machine, local stable signing did not make `SMAppService.mainApp` login startup inherit Accessibility or Input Monitoring trust. It is not a substitute for Developer ID signing and notarization when distributing to other people.
 
 ## Uninstall
 

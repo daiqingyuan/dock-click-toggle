@@ -145,6 +145,7 @@ LaunchAgent
 - same-session open probe 已经不再作为失败条件。
 - 测试脚本现在会准备真实登出/登录测试，并把 Terminal LaunchAgent plist 改名为 `.disabled`，避免两条启动链同时启动。
 - 真正 log out / log in 后，`SMAppService.mainApp` 会尝试启动 DockClickToggle，但启动后的进程仍然拿不到 Accessibility 和 Input Monitoring，状态为 `FAIL`，错误是 `accessibility_not_granted+input_monitoring_not_granted`。
+- 切换到本机稳定签名后，重新清理 TCC 并再次测试真实登录启动，结果仍然相同：`SMAppService.mainApp` 启动出来的进程拿不到 Accessibility 和 Input Monitoring。
 
 复现实验命令：
 
@@ -262,6 +263,7 @@ README 和手工测试矩阵已经记录这个限制。
 - `SMAppService.mainApp` 注册：可注册为 `enabled`。
 - `SMAppService` same-session open probe：不可用，但不再作为失败判定。
 - `SMAppService` 真正登录启动：会启动 app，但 app 仍然拿不到 Accessibility / Input Monitoring，最终退出并写入 `FAIL`。
+- 本机稳定签名：已生效，但没有修复 `SMAppService.mainApp` 登录启动权限问题。
 
 ## 后续建议路线
 
@@ -312,14 +314,16 @@ designated => identifier "local.dock-click-toggle" and certificate leaf = ...
 
 这有助于减少 TCC 把每次重签后的 app 当成新身份的问题。
 
+但后续真实测试已经确认：即使使用本机稳定签名，并清理旧 TCC 记录后重新测试，`SMAppService.mainApp` 登录启动仍然拿不到 Accessibility / Input Monitoring。
+
 后续还可以尝试：
 
 - Developer ID 签名。
-- 清理旧 TCC 记录后，只给 `/Applications/DockClickToggle.app` 这个固定身份授权。
+- 只给 `/Applications/DockClickToggle.app` 这个固定身份授权后，再配合专用 helper app 测试。
 
 ### 优先级 3：做专用 LoginItem helper app
 
-如果稳定签名后 `SMAppService.mainApp` 仍然不行，下一步应该改成：
+稳定签名后 `SMAppService.mainApp` 仍然不行，下一步应该改成：
 
 ```text
 DockClickToggle.app
@@ -358,4 +362,4 @@ DockClickToggle.app
 
 不要把默认启动方式从 Terminal launcher 换成 `open -gj` 或 `SMAppService.mainApp`。
 
-目前真正稳定可用的是 Terminal launcher。`SMAppService.mainApp` 已经完成真实登录验证，但在当前签名和权限条件下失败。下一步应研究稳定签名或专用 LoginItem helper app。
+目前真正稳定可用的是 Terminal launcher。`SMAppService.mainApp` 已经完成真实登录验证，并且在 ad-hoc 和本机稳定签名条件下都失败。下一步应研究专用 LoginItem helper app，或在正式 Developer ID 签名后再做分发级验证。
