@@ -54,7 +54,7 @@ sleep 10
 cat "$HOME/Library/Application Support/DockClickToggle/status.json"
 ```
 
-The installer creates:
+By default, the installer creates:
 
 - `/Applications/DockClickToggle.app`
 - `~/Library/LaunchAgents/local.dock-click-toggle.plist`
@@ -121,7 +121,7 @@ The built app is written to:
 ./scripts/uninstall.sh
 ```
 
-The uninstall script removes the LaunchAgent and `/Applications/DockClickToggle.app`. It does not reset macOS privacy permissions.
+The uninstall script removes the LaunchAgent and the installed app from `INSTALL_DIR`, which defaults to `/Applications`. It does not reset macOS privacy permissions.
 
 To remove support files and logs too:
 
