@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app bundle
+        run: ./scripts/build.sh
+
+      - name: Verify app signature
+        run: codesign --verify --deep --strict .build/DockClickToggle.app
+
+      - name: Validate plists
+        run: |
+          plutil -lint packaging/Info.plist
+          plutil -lint packaging/local.dock-click-toggle.plist.template
+
+      - name: Check required bundle files
+        run: |
+          test -x .build/DockClickToggle.app/Contents/MacOS/DockClickToggle
+          test -x .build/DockClickToggle.app/Contents/Resources/start-via-terminal.sh
+          test -f .build/DockClickToggle.app/Contents/Resources/AppIcon.icns
+

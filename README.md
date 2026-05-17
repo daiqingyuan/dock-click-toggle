@@ -143,6 +143,18 @@ INSTALL_DIR="$HOME/Applications" ./scripts/uninstall.sh --purge
 
 ## Troubleshooting
 
+Start with the diagnose script:
+
+```bash
+./scripts/diagnose.sh
+```
+
+If you installed to a custom directory, pass the same `INSTALL_DIR`:
+
+```bash
+INSTALL_DIR="$HOME/Applications" ./scripts/diagnose.sh
+```
+
 Read the error log:
 
 ```bash
