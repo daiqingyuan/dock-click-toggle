@@ -6,6 +6,17 @@ uid="$(id -u)"
 agent_label="local.dock-click-toggle"
 agent_path="$HOME/Library/LaunchAgents/$agent_label.plist"
 install_dir="${INSTALL_DIR:-/Applications}"
+
+default_local_sign_identity="DockClickToggle Local Code Signing"
+if [[ -n "${SIGN_IDENTITY+x}" ]]; then
+    sign_identity="$SIGN_IDENTITY"
+elif /usr/bin/security find-identity -v -p codesigning 2>/dev/null |
+    /usr/bin/grep -F "\"$default_local_sign_identity\"" >/dev/null; then
+    sign_identity="$default_local_sign_identity"
+else
+    sign_identity="-"
+fi
+
 app_path="$install_dir/DockClickToggle.app"
 support_dir="$HOME/Library/Application Support/DockClickToggle"
 log_dir="$HOME/Library/Logs/DockClickToggle"
@@ -23,7 +34,8 @@ mkdir -p "$install_dir" "$HOME/Library/LaunchAgents" "$support_dir" "$log_dir"
 rm -rf "$app_path"
 cp -R "$repo_dir/.build/DockClickToggle.app" "$app_path"
 /usr/bin/xattr -cr "$app_path" 2>/dev/null || true
-/usr/bin/codesign -f -s - --identifier local.dock-click-toggle "$app_path"
+/usr/bin/codesign -f --sign "$sign_identity" --identifier local.dock-click-toggle "$app_path"
+/usr/bin/codesign --verify --deep --strict "$app_path"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app_path"
 
 cp "$repo_dir/packaging/local.dock-click-toggle.plist.template" "$agent_path"
@@ -35,6 +47,7 @@ cp "$repo_dir/packaging/local.dock-click-toggle.plist.template" "$agent_path"
 /bin/launchctl bootstrap "gui/$uid" "$agent_path"
 
 echo "Installed DockClickToggle."
+echo "Signing identity: $sign_identity"
 echo "Enable Accessibility and Input Monitoring permissions for DockClickToggle in System Settings."
 echo "To request permission prompts manually: $app_path/Contents/MacOS/DockClickToggle --request-permissions"
 echo "Status file: $support_dir/status.json"

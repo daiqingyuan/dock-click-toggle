@@ -277,9 +277,43 @@ README 和手工测试矩阵已经记录这个限制。
 
 当前 app 是 ad-hoc 签名，macOS TCC 可能把不同启动路径或重新签名后的 app 当成不同身份。
 
-下一步可以尝试：
+已经新增本机稳定签名脚本：
 
-- 本地固定签名证书。
+```bash
+./scripts/create-local-signing-identity.sh
+```
+
+它会创建：
+
+```text
+DockClickToggle Local Code Signing
+```
+
+如果这个 identity 存在，`scripts/build.sh` 和 `scripts/install.sh` 会自动使用它；否则才 fallback 到 ad-hoc 签名。也可以显式指定：
+
+```bash
+SIGN_IDENTITY="DockClickToggle Local Code Signing" ./scripts/install.sh
+```
+
+本机实测安装后的签名已经从：
+
+```text
+Signature=adhoc
+designated => cdhash ...
+```
+
+变成：
+
+```text
+Authority=DockClickToggle Local Code Signing
+Authority=DockClickToggle Local Root CA
+designated => identifier "local.dock-click-toggle" and certificate leaf = ...
+```
+
+这有助于减少 TCC 把每次重签后的 app 当成新身份的问题。
+
+后续还可以尝试：
+
 - Developer ID 签名。
 - 清理旧 TCC 记录后，只给 `/Applications/DockClickToggle.app` 这个固定身份授权。
 

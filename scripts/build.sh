@@ -5,6 +5,16 @@ repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 app_dir="$repo_dir/.build/DockClickToggle.app"
 iconset_dir="$repo_dir/.build/AppIcon.iconset"
 
+default_local_sign_identity="DockClickToggle Local Code Signing"
+if [[ -n "${SIGN_IDENTITY+x}" ]]; then
+    sign_identity="$SIGN_IDENTITY"
+elif /usr/bin/security find-identity -v -p codesigning 2>/dev/null |
+    /usr/bin/grep -F "\"$default_local_sign_identity\"" >/dev/null; then
+    sign_identity="$default_local_sign_identity"
+else
+    sign_identity="-"
+fi
+
 clean_bundle_metadata() {
     /usr/bin/xattr -cr "$app_dir" 2>/dev/null || true
     /usr/bin/find "$app_dir" -exec /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
@@ -45,7 +55,7 @@ cp "$repo_dir/packaging/Info.plist" "$app_dir/Contents/Info.plist"
 for attempt in 1 2 3; do
     clean_bundle_metadata
 
-    if /usr/bin/codesign -f -s - --identifier local.dock-click-toggle "$app_dir" &&
+    if /usr/bin/codesign -f --sign "$sign_identity" --identifier local.dock-click-toggle "$app_dir" &&
         verify_bundle; then
         break
     fi

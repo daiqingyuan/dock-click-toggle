@@ -208,6 +208,36 @@ The built app is written to:
 .build/DockClickToggle.app
 ```
 
+## Local Stable Signing
+
+For local development, create a stable self-signed code signing identity:
+
+```bash
+./scripts/create-local-signing-identity.sh
+```
+
+This creates a local identity named:
+
+```text
+DockClickToggle Local Code Signing
+```
+
+After it exists, `scripts/build.sh` and `scripts/install.sh` automatically use it. Without that identity, the scripts fall back to ad-hoc signing.
+
+To force a specific signing identity:
+
+```bash
+SIGN_IDENTITY="DockClickToggle Local Code Signing" ./scripts/install.sh
+```
+
+To force ad-hoc signing:
+
+```bash
+SIGN_IDENTITY=- ./scripts/install.sh
+```
+
+Stable local signing is useful for testing macOS privacy permissions because TCC is sensitive to the app's code identity. It is not a substitute for Developer ID signing and notarization when distributing to other people.
+
 ## Uninstall
 
 ```bash
