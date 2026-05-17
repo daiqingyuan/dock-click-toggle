@@ -90,8 +90,8 @@ final class DockClickToggle {
     private let statusStore = StatusStore()
     private let maxConsecutiveTimeouts = 5
     private let maxClickMovement: CGFloat = 5
-    private let maxClickDuration: TimeInterval = 0.35
-    private let dockCacheTTL: TimeInterval = 0.5
+    private let maxClickDuration: TimeInterval = 0.50
+    private let dockCacheTTL: TimeInterval = 2.0
 
     func start() {
         requestAccessibilityIfNeeded()
@@ -176,7 +176,6 @@ final class DockClickToggle {
         case .leftMouseDragged:
             if pendingClick != nil {
                 pendingClick = nil
-                return nil
             }
             return Unmanaged.passUnretained(event)
         default:
@@ -233,7 +232,7 @@ final class DockClickToggle {
         guard distance(pending.downPoint, upPoint) <= maxClickMovement,
               duration <= maxClickDuration,
               NSWorkspace.shared.frontmostApplication?.bundleIdentifier == pending.bundleIdentifier else {
-            return nil
+            return Unmanaged.passUnretained(event)
         }
 
         lastActionAt = Date()
@@ -306,20 +305,26 @@ final class DockClickToggle {
         }
     }
 
-    private func collectDockItems(from element: AXUIElement, depth: Int = 0) -> [AXUIElement] {
-        guard depth < 6 else {
-            return []
+    private func collectDockItems(from root: AXUIElement) -> [AXUIElement] {
+        var result: [AXUIElement] = []
+        var queue: [AXUIElement] = [root]
+        var index = 0
+
+        while index < queue.count {
+            let element = queue[index]
+            index += 1
+
+            if axString(element, kAXSubroleAttribute) == kAXApplicationDockItemSubrole as String {
+                result.append(element)
+                continue
+            }
+
+            if let children = axArray(element, kAXChildrenAttribute) {
+                queue.append(contentsOf: children)
+            }
         }
 
-        if axString(element, kAXSubroleAttribute) == kAXApplicationDockItemSubrole as String {
-            return [element]
-        }
-
-        guard let children = axArray(element, kAXChildrenAttribute) else {
-            return []
-        }
-
-        return children.flatMap { collectDockItems(from: $0, depth: depth + 1) }
+        return result
     }
 
     private func hasUnminimizedWindow(bundleIdentifier: String) -> Bool {
