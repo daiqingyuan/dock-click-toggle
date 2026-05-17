@@ -150,6 +150,7 @@ agent_login_item_status_value() {
 }
 
 agent_permission_status() {
+    printf 'manualHelperPermissionStatusContext=current-shell-not-login-item\n'
     "$login_item_binary_path" --permission-status
 }
 
@@ -287,10 +288,15 @@ Expected success:
 - "processRunning": true
 
 If the login test starts the helper but reports missing permissions, grant
-"Dock Click Toggle Agent" in Accessibility and Input Monitoring. You can ask
-macOS for the helper-specific prompts with:
+"Dock Click Toggle Agent" in Accessibility and Input Monitoring. You can try
+to ask macOS for the helper-specific prompts with:
 
    "$login_item_binary_path" --request-permissions
+
+Note: helper permission checks run manually from Terminal are only a clue.
+The real proof is the status written by the helper after log out / log in,
+because macOS may evaluate privacy trust differently for a login item than
+for a helper binary launched from the current shell.
 
 If the login test fails, restore the normal Terminal-based launcher:
 

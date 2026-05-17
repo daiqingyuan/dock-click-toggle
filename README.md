@@ -202,6 +202,8 @@ Because the helper has its own bundle id, macOS may require separate permissions
 /Applications/DockClickToggle.app/Contents/Library/LoginItems/DockClickToggleAgent.app/Contents/MacOS/DockClickToggleAgent --request-permissions
 ```
 
+On the current test machine, the real log out / log in test launched the helper, but it still wrote `accessibilityTrusted: false`, `inputMonitoringGranted: false`, and `eventTapCreated: false`, then exited. Running the helper binary manually from Terminal can report `true` permissions, but that is not proof that the login item receives the same privacy context. The Terminal-based launcher remains the default.
+
 ## Check Status
 
 ```bash
