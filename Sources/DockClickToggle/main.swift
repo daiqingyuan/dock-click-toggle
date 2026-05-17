@@ -82,18 +82,25 @@ final class StatusStore {
 
 final class DockClickToggle {
     private var eventTap: CFMachPort?
+    private var heartbeatTimer: Timer?
+    private var signalSources: [DispatchSourceSignal] = []
     private var pendingClick: PendingClick?
     private var dockItemCache: [DockItem] = []
     private var lastDockCacheRefresh = Date.distantPast
     private var lastActionAt = Date.distantPast
+    private var lastAXPermissionLogAt = Date.distantPast
     private var consecutiveTimeouts = 0
+    private var isRecoveringEventTap = false
+    private var isTearingDown = false
     private let statusStore = StatusStore()
     private let maxConsecutiveTimeouts = 5
     private let maxClickMovement: CGFloat = 5
     private let maxClickDuration: TimeInterval = 0.50
     private let dockCacheTTL: TimeInterval = 2.0
+    private let axPermissionLogInterval: TimeInterval = 30
 
     func start() {
+        installSignalHandlers()
         requestAccessibilityIfNeeded()
         requestInputMonitoringIfNeeded()
         writeStatus(state: "STARTING", eventTapCreated: false, lastError: nil)
@@ -156,9 +163,17 @@ final class DockClickToggle {
                 if consecutiveTimeouts > maxConsecutiveTimeouts {
                     fputs("DockClickToggle: event tap disabled \(consecutiveTimeouts) times. Re-enabling after 2s.\n", stderr)
                     consecutiveTimeouts = 0
+                    isRecoveringEventTap = true
+                    writeStatus(
+                        state: "RECOVERING",
+                        eventTapCreated: false,
+                        lastError: "event_tap_reenable"
+                    )
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                         guard let self, let eventTap = self.eventTap else { return }
                         CGEvent.tapEnable(tap: eventTap, enable: true)
+                        self.isRecoveringEventTap = false
+                        self.writeStatus(state: "OK", eventTapCreated: true, lastError: nil)
                     }
                     return Unmanaged.passUnretained(event)
                 }
@@ -251,14 +266,63 @@ final class DockClickToggle {
     }
 
     private func startHeartbeat() {
-        Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self else { return }
+            if self.isRecoveringEventTap {
+                self.writeStatus(
+                    state: "RECOVERING",
+                    eventTapCreated: false,
+                    lastError: "event_tap_reenable"
+                )
+                return
+            }
+
             self.writeStatus(
                 state: self.eventTap == nil ? "FAIL" : "OK",
                 eventTapCreated: self.eventTap != nil,
                 lastError: self.eventTap == nil ? "event_tap_missing" : nil
             )
         }
+    }
+
+    private func installSignalHandlers() {
+        signal(SIGTERM, SIG_IGN)
+        signal(SIGINT, SIG_IGN)
+
+        let term = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        term.setEventHandler { [weak self] in
+            self?.teardown()
+        }
+        term.resume()
+
+        let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+        interrupt.setEventHandler { [weak self] in
+            self?.teardown()
+        }
+        interrupt.resume()
+
+        signalSources = [term, interrupt]
+    }
+
+    private func teardown() {
+        guard !isTearingDown else {
+            return
+        }
+
+        isTearingDown = true
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            CFMachPortInvalidate(eventTap)
+            self.eventTap = nil
+        }
+
+        writeStatus(state: "STOPPED", eventTapCreated: false, lastError: nil)
+        signalSources.forEach { $0.cancel() }
+        signalSources.removeAll()
+        CFRunLoopStop(CFRunLoopGetMain())
     }
 
     private func hasModifierKeys(_ event: CGEvent) -> Bool {
@@ -387,10 +451,27 @@ final class DockClickToggle {
 
     private func axArray(_ element: AXUIElement, _ attribute: String) -> [AXUIElement]? {
         var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
+        let result = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
+        guard result == .success else {
+            if result == .apiDisabled {
+                logAXPermissionIssue(attribute: attribute, result: result)
+            }
             return nil
         }
         return value as? [AXUIElement]
+    }
+
+    private func logAXPermissionIssue(attribute: String, result: AXError) {
+        let now = Date()
+        guard now.timeIntervalSince(lastAXPermissionLogAt) > axPermissionLogInterval else {
+            return
+        }
+
+        lastAXPermissionLogAt = now
+        fputs(
+            "DockClickToggle: Accessibility API error \(result.rawValue) while reading \(attribute). Check System Settings > Privacy & Security > Accessibility.\n",
+            stderr
+        )
     }
 
     private func axString(_ element: AXUIElement, _ attribute: String) -> String? {

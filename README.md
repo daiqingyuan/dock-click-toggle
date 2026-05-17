@@ -93,6 +93,14 @@ The LaunchAgent itself can be `state = not running`; it only checks and starts t
 
 The status file also reports whether Accessibility, Input Monitoring, and the event tap are active.
 
+Possible status states:
+
+- `STARTING`: the app is launching and checking permissions.
+- `OK`: the event tap is active.
+- `RECOVERING`: the event tap was disabled and is being re-enabled.
+- `FAIL`: startup or event tap creation failed.
+- `STOPPED`: the app received a termination signal and shut down cleanly.
+
 DockClickToggle refreshes this file every 30 seconds. The launcher treats an `OK` status as stale if it is older than 120 seconds or if the recorded `pid` does not match the running process.
 
 ## Manual Restart
@@ -149,6 +157,12 @@ Start with the diagnose script:
 ./scripts/diagnose.sh
 ```
 
+For issue reports or automation, use JSON output:
+
+```bash
+./scripts/diagnose.sh --json
+```
+
 If you installed to a custom directory, pass the same `INSTALL_DIR`:
 
 ```bash
@@ -171,3 +185,7 @@ Then restart:
 ```bash
 launchctl kickstart -k gui/$(id -u)/local.dock-click-toggle
 ```
+
+## Manual Testing
+
+Most DockClickToggle behavior depends on macOS Dock and Accessibility behavior, so manual testing matters more than unit tests for the core event tap path. See [docs/manual-test-matrix.md](docs/manual-test-matrix.md).
