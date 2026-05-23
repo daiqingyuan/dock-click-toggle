@@ -74,7 +74,7 @@ By default, the installer creates:
 - `~/Library/Logs/DockClickToggle/err.log`
 - `~/Library/Logs/DockClickToggle/out.log`
 
-## Why Terminal May Flash At Login
+## Why Terminal May Briefly Open At Login
 
 On some recent macOS versions, a LaunchAgent that directly starts a `CGEventTap` process can fail to receive Input Monitoring permission because the process is spawned in a daemon-like context.
 
@@ -85,7 +85,7 @@ failed to create event tap
 Grant Input Monitoring permission
 ```
 
-Terminal may briefly appear at login. That is expected.
+Terminal may briefly appear at login. The launcher starts DockClickToggle with `nohup`, waits for the startup shell to exit, and then closes only the Terminal window it created. It does not hide or close Terminal windows you were already using.
 
 ## Experimental Open Launcher Test
 
@@ -310,7 +310,7 @@ INSTALL_DIR="$HOME/Applications" ./scripts/uninstall.sh --purge
 
 ## Known Limitations
 
-- The current login launcher uses Terminal to start the app in an interactive user session. Terminal may briefly open during login or restart.
+- The current login launcher uses Terminal to start the app in an interactive user session. Terminal may briefly open during login or restart, and the launcher attempts to close only its own startup window.
 - Dragging the current frontmost app's Dock icon may not behave exactly like the native Dock because DockClickToggle consumes the initial mouse-down event for eligible clicks.
 - Some apps with unusual Accessibility window metadata may not minimize every window exactly like a native Dock action.
 

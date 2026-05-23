@@ -64,7 +64,22 @@ set outLog to item 2 of argv
 set errLog to item 3 of argv
 
 tell application "Terminal"
-    do script "nohup " & quoted form of binaryPath & " > " & quoted form of outLog & " 2> " & quoted form of errLog & " & exit"
+    set launchTab to do script "nohup " & quoted form of binaryPath & " > " & quoted form of outLog & " 2> " & quoted form of errLog & " < /dev/null & exit"
+
+    repeat with attempt from 1 to 20
+        try
+            if busy of launchTab is false then exit repeat
+        on error
+            return
+        end try
+        delay 0.1
+    end repeat
+
+    try
+        if busy of launchTab is false then
+            close (window of launchTab)
+        end if
+    end try
 end tell
 end run
 APPLESCRIPT

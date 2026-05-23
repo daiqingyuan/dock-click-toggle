@@ -98,7 +98,7 @@ LaunchAgent
 -> DockClickToggle
 ```
 
-这个方案不优雅，因为 Terminal 可能在登录时闪一下。
+这个方案不优雅，因为 Terminal 可能在登录时闪一下。当前启动脚本会在启动完后台进程后，尝试只关闭自己新开的 Terminal 窗口，不会隐藏或关闭用户原本正在使用的 Terminal 窗口。
 
 已经新增实验脚本：
 
@@ -214,7 +214,7 @@ DockClickToggle.app
 
 ## 当前明确限制
 
-### 1. Terminal 闪现仍然存在
+### 1. Terminal 启动链仍然存在
 
 当前唯一已验证稳定的启动方案仍然是 Terminal launcher。
 
@@ -225,6 +225,8 @@ DockClickToggle.app
 - 真正的 `SMAppService.mainApp` 登录启动已经测试过，仍然拿不到 Accessibility / Input Monitoring。
 
 所以现在不能安全替换默认启动链。
+
+当前已经做过缓解：Terminal launcher 启动后台进程后，会尝试关闭自己创建的那一个启动窗口，避免每天留下很多 shell 窗口。
 
 ### 2. 权限必须由用户手动授权
 
