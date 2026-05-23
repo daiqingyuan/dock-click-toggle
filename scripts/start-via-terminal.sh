@@ -57,29 +57,50 @@ if [[ ! -x "$binary_path" ]]; then
     exit 1
 fi
 
-/usr/bin/osascript - "$binary_path" "$out_log" "$err_log" <<'APPLESCRIPT'
+terminal_was_running=false
+if /usr/bin/pgrep -x Terminal >/dev/null 2>&1; then
+    terminal_was_running=true
+fi
+
+/usr/bin/osascript - "$binary_path" "$out_log" "$err_log" "$terminal_was_running" <<'APPLESCRIPT'
 on run argv
 set binaryPath to item 1 of argv
 set outLog to item 2 of argv
 set errLog to item 3 of argv
+set terminalWasRunning to item 4 of argv is "true"
+set shouldKillTerminal to false
 
 tell application "Terminal"
-    set launchTab to do script "nohup " & quoted form of binaryPath & " > " & quoted form of outLog & " 2> " & quoted form of errLog & " < /dev/null & exit"
+    set launchCommand to "nohup " & quoted form of binaryPath & " > " & quoted form of outLog & " 2> " & quoted form of errLog & " < /dev/null & disown >/dev/null 2>&1; exit"
+    set launchTab to do script launchCommand
+    set custom title of launchTab to "DockClickToggle Launcher"
 
-    repeat with attempt from 1 to 20
+    repeat with attempt from 1 to 50
         try
             if busy of launchTab is false then exit repeat
         on error
-            return
+            exit repeat
         end try
         delay 0.1
     end repeat
 
-    try
-        if busy of launchTab is false then
-            close (window of launchTab)
-        end if
-    end try
+    delay 0.5
+
+    repeat with terminalWindow in (windows as list)
+        try
+            if custom title of selected tab of terminalWindow is "DockClickToggle Launcher" then
+                close terminalWindow saving no
+            end if
+        end try
+    end repeat
+
+    if terminalWasRunning is false then
+        set shouldKillTerminal to true
+    end if
 end tell
+
+if shouldKillTerminal then
+    do shell script "/usr/bin/killall Terminal >/dev/null 2>&1 || true"
+end if
 end run
 APPLESCRIPT
